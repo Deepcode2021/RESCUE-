@@ -281,7 +281,7 @@ export class Survivor {
     const dy = rope.y[h] - (this.y - CHEST);
     if (dx * dx + dy * dy > GRAB_R * GRAB_R) return false;
     const rel = Math.hypot(rope.hookVX - this.vx, rope.hookVY - this.vy);
-    if (rel > GRAB_SPEED) return false;
+    if (rel > GRAB_SPEED) { world.onGrabFast(this, rel); return false; }
     if (!this.setState(S.ATTACHED)) return false;
     this.everAttached = true;
     this.grip = 100;

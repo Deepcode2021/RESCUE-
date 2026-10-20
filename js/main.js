@@ -32,6 +32,9 @@ const ui = new UI({
   restart: () => { gesture(); game.restart(); },
   next: () => { gesture(); game.next(); },
   title: () => { audio.click(); game.toTitle(); },
+  tutorial: () => { gesture(); audio.click(); game.replayTutorial(); },
+  skipTutorial: () => { audio.click(); game.skipTutorial(); },
+  hints: () => { gesture(); audio.click(); game.toggleHints(); },
   pause: () => { audio.click(); game.pause(); },
   sound: () => {
     gesture();
@@ -52,6 +55,7 @@ input.onRestart = () => {
   game.restart();
 };
 window.addEventListener('keydown', (e) => {          // title-screen keyboard shortcuts
+  if (e.code === 'KeyT' && !e.repeat && game.state === STATE.PLAYING && game.coach.tutorialActive) { game.skipTutorial(); return; }
   if (game.state === STATE.CUTSCENE && !e.repeat && (e.code === 'Space' || e.code === 'ArrowRight')) { e.preventDefault(); ui.advanceCutscene(); return; }
   if (game.state !== STATE.TITLE || e.repeat) return;
   if (e.code === 'ArrowLeft') game.selectMission(-1);
@@ -63,6 +67,8 @@ window.addEventListener('keydown', (e) => {          // title-screen keyboard sh
 input.onEnter = (e) => {
   if (game.state === STATE.TITLE) { e.preventDefault(); ui.h.openStory(); }
   else if (game.state === STATE.CUTSCENE) { e.preventDefault(); ui.advanceCutscene(); }
+  else if (game.state === STATE.SUCCESS) { e.preventDefault(); ui.h.next(); }          // Enter = the primary results button
+  else if (game.state === STATE.FAILED) { e.preventDefault(); ui.h.restart(); }
 };
 
 if (matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch'); else document.body.classList.add('notouch');
@@ -71,6 +77,7 @@ window.addEventListener('pointerdown', (e) => {
 });
 
 ui.setSoundLabel(audio.muted);
+ui.setHintsLabel(storage.data.hints !== false);
 ui.showTitle(game.selectInfo());
 ui.setStoryProgress(game.storyLabel());
 

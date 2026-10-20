@@ -25,12 +25,17 @@
       </div>
       <div class="hud-center">
         <div id="hudObjective">RESCUE THE SURVIVORS</div>
-        <div class="hud-wind"><span class="hud-label">WIND</span> <span id="windArrow">→</span> <span class="windtrack"><i id="windBar"></i></span></div>
+        <div class="hud-wind"><span class="hud-label">WIND</span> <span id="windArrow">→</span> <span class="windtrack"><i id="windBar"></i></span> <span id="windWord" class="hud-label"></span></div>
+        <div id="hudNav" class="hud-nav"></div>
       </div>
       <button id="pauseBtn" class="icon-btn" data-action="pause" aria-label="Pause">II</button>
     </div>
     <div id="banner" class="banner"></div>
     <div id="hint" class="hint hidden"></div>
+    <div id="coach" class="coach hidden" role="status" aria-live="polite">
+      <div class="coach-head"><span id="coachStep"></span><button id="coachSkip" class="coach-skip" data-action="skipTutorial" aria-label="Skip tutorial">SKIP TUTORIAL (T)</button></div>
+      <div id="coachText"></div>
+    </div>
 
     <!-- Touch controls -->
     <div id="touch" class="hidden">
@@ -76,12 +81,14 @@
           <div><kbd>W</kbd> / <kbd>Space</kbd> lift &nbsp; <kbd>S</kbd> descend</div>
           <div><kbd>Q</kbd> reel rope in &nbsp; <kbd>E</kbd> let rope out (hold) &nbsp; <kbd>R</kbd> restart &nbsp; <kbd>Esc</kbd> pause</div>
           <div class="ctl-sub">Touch the hook to a survivor gently: they climb the rope on their own. The rope holds up to THREE. Lower any of them into the SAFE ZONE and everyone on the rope hops off together (convoy bonus).</div>
-          <div class="ctl-sub">Touch: on-screen buttons.</div>
+          <div class="ctl-sub">Touch: on-screen buttons. <kbd>T</kbd> skips the tutorial. New here? Press TUTORIAL.</div>
         </details>
         <div class="row">
           <button class="btn small" data-action="sound"><span data-sound-label>SOUND: ON</span></button>
-          <div id="bestLine" class="best"></div>
+          <button class="btn small" data-action="tutorial">TUTORIAL</button>
+          <button class="btn small" data-action="hints"><span data-hints-label>HINTS: ON</span></button>
         </div>
+        <div id="bestLine" class="best"></div>
       </div>
     </section>
 
@@ -126,6 +133,8 @@
         <button class="btn" data-action="resume">RESUME</button>
         <button class="btn" data-action="restart">RESTART MISSION</button>
         <button class="btn" data-action="sound"><span data-sound-label>SOUND: ON</span></button>
+        <button class="btn" data-action="hints"><span data-hints-label>HINTS: ON</span></button>
+        <button class="btn" data-action="tutorial">TUTORIAL <small>(restarts on Mountain Pass)</small></button>
         <button class="btn" data-action="title">MAIN MENU</button>
       </div>
     </section>
@@ -145,8 +154,9 @@
           <tr class="total"><td>FINAL SCORE</td><td id="resScore">0</td></tr>
         </table>
         <div id="resBest" class="best"></div>
+        <div id="resWhy" class="why hidden"><div class="why-title">WHAT HAPPENED</div><ul id="resWhyList"></ul></div>
         <div class="row">
-          <button class="btn" data-action="restart" id="retryBtn">RETRY</button>
+          <button class="btn" data-action="restart" id="retryBtn">RETRY (R)</button>
           <button class="btn hidden" data-action="next" id="nextBtn">NEXT MISSION</button>
           <button class="btn" data-action="title">MAIN MENU</button>
         </div>

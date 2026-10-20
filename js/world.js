@@ -84,6 +84,10 @@ export class World {
     this.blood.reset();
     this.gibs.reset();
     this.puffs.reset();
+    this.incidents = [];                              // what went wrong, for the results debrief (no gameplay effect)
+    this.rings = [];                                  // expanding feedback rings (cosmetic)
+    this.fastCd = 0;
+    this.nearMisses = 0;
     this.redFlash = 0;
     this.theme = themeOf(this.cfg.theme);
     this.intensity = 0;                               // storm builds up over the mission (0..1)
@@ -132,7 +136,7 @@ export class World {
       this.sparks.emit(heli.x, heli.y + 28, Math.min(14, heli.impact / 20), 160, 0.5);
       this.emit('impact', { strength: heli.impact, x: heli.x, y: heli.y });
     }
-    if (heli.crashed && !this.ended) this.emit('heli_crash', { reason: heli.crashReason });
+    if (heli.crashed && !this.ended) { this.incidents.push({ t: this.time, kind: 'crash', cause: heli.crashReason, fuelOut: this.fuelOut }); this.emit('heli_crash', { reason: heli.crashReason }); }
 
     const loads = this._loads || (this._loads = []);
     loads.length = 0;
@@ -166,6 +170,8 @@ export class World {
     this.debris.update(dt, this);
     this.sparks.update(dt);
     this.puffs.update(dt, wind);
+    if (this.fastCd > 0) this.fastCd -= dt;
+    for (let i = this.rings.length - 1; i >= 0; i--) { this.rings[i].t += dt; if (this.rings[i].t > 0.9) this.rings.splice(i, 1); }
     this.ambientFx(dt);
     this.blood.update(dt, terrain);
     this.gibs.update(dt, terrain, this.blood);
@@ -351,13 +357,46 @@ export class World {
     this.score += pts;
     this.popups.add(s.x, s.y - 60, '+' + pts);
     this.sparks.emit(s.x, s.y - 20, 16, 200, 0.8);
+    this.ring(s.x, s.y - 20, 'rescue');
     this.dialogue.say(s, 'rescued', true);
     this.emit('rescued', { s, points: pts });
   }
 
+  /** Expanding ring of feedback at a point. kind: 'hook' | 'rescue'. */
+  ring(x, y, kind) {
+    if (this.rings.length >= 8) this.rings.shift();
+    this.rings.push({ x, y, t: 0, kind });
+  }
+
   onGrab(s) {
     this.sparks.emit(s.x, s.y - 16, 8, 120, 0.4);
+    this.ring(s.x, s.y - 16, 'hook');
+    this.popups.add(s.x, s.y - 52, 'HOOKED!');
     this.emit('grab', { s });
+  }
+
+  /** The hook touched a survivor but was moving too fast to catch them. Rate-limited so it stays a hint, not spam. */
+  onGrabFast(s, rel) {
+    if (this.fastCd > 0) return;
+    this.fastCd = 1.6;
+    this.popups.add(s.x, s.y - 52, 'TOO FAST!');
+    this.emit('grab_fast', { s, rel });
+  }
+
+  /** Distance (world units) from x to the nearest edge of the safe pad; 0 when over it. */
+  padGap(x) {
+    const p = this.terrain.pad;
+    return x < p.x0 ? p.x0 - x : (x > p.x1 ? x - p.x1 : 0);
+  }
+
+  /** A survivor died or fell within a short distance of the safe zone: tell the player how close it was. */
+  checkNearMiss(s, cause) {
+    const d = this.padGap(s.x);
+    if (d > 0 && d <= 200 && cause !== 'blades' && cause !== 'crushed' && cause !== 'tornado') {
+      this.nearMisses++;
+      this.incidents.push({ t: this.time, kind: 'near', id: s.id, cause, dist: d });
+      this.emit('near_miss', { s, dist: d, cause });
+    }
   }
 
   onRopeHit(s, strength) {
@@ -374,6 +413,7 @@ export class World {
 
   onSurvivorDropped(s, reason) {
     this.drops++;
+    this.incidents.push({ t: this.time, kind: 'dropped', cause: reason, id: s.id });
     this.emit('dropped', { s, reason });
   }
 
@@ -390,6 +430,8 @@ export class World {
     if (this.lostCauses[cause] !== undefined) this.lostCauses[cause]++;
     this.sparks.emit(s.x, s.y - 16, 14, 220, 0.8);
     this.addShake(0.4);
+    this.incidents.push({ t: this.time, kind: 'lost', cause, id: s.id });
+    this.checkNearMiss(s, cause);
     this.gore(s, cause);
     this.dialogue.say(s, cause === 'tornado' ? 'tornado' : (cause === 'drowned' ? 'drowned' : 'lost'), true);
     this.emit('lost', { s, cause });
@@ -464,7 +506,7 @@ export class World {
     this.fuel = Math.max(0, this.fuel - rate * dt);
     if (this.fuel <= 25 && this.fuelWarn < 1) { this.fuelWarn = 1; this.emit('low_fuel', { level: 1 }); }
     if (this.fuel <= 10 && this.fuelWarn < 2) { this.fuelWarn = 2; this.emit('low_fuel', { level: 2 }); }
-    if (this.fuel <= 0 && !this.fuelOut) { this.fuelOut = true; this.emit('out_of_fuel', {}); }
+    if (this.fuel <= 0 && !this.fuelOut) { this.fuelOut = true; this.incidents.push({ t: this.time, kind: 'fuel' }); this.emit('out_of_fuel', {}); }
   }
 
   /** Test helper: total rope stretch right now. */

@@ -146,6 +146,11 @@ export class AudioEngine {
   }
 
   // ---- named effects ----
+  // ---- v6 feedback sounds ----
+  hooked() { this.tone(660, 0.07, 'triangle', 0.16); this.tone(990, 0.12, 'triangle', 0.16, 0, 0.07); }
+  tooFast() { this.tone(240, 0.12, 'square', 0.07, 170); }
+  nearMiss() { this.tone(494, 0.18, 'triangle', 0.15, 0, 0); this.tone(392, 0.4, 'triangle', 0.15, 330, 0.18); }
+  tick() { this.tone(880, 0.05, 'sine', 0.06); }
   // ---- v5 effects ----
   gore() {
     this.burst(0.5, 700, 0.5, 'lowpass'); this.burst(0.22, 2600, 0.3, 'bandpass'); this.tone(70, 0.35, 'sine', 0.4, 28);

@@ -3,7 +3,7 @@
 import { WORLD_W, WORLD_H } from './constants.js';
 import { DX } from './terrain.js';
 import { hashS, hash2, clamp, TAU, mulberry32 } from './utils.js';
-import { S } from './survivors.js';
+import { S, GRAB_R, GRAB_SPEED } from './survivors.js';
 import { HOOK_OFFSET } from './helicopter.js';
 import { HeliSprites, PU, COLORS } from './sprites.js';
 import { bakeBuilding, bakeScenery, S as PXS } from './cityart.js';
@@ -108,6 +108,8 @@ export class Renderer {
     else this.drawTerrain(ctx, world.terrain, L, R, B + 40, u);
     if (world.terrain.hasWater) this.drawWater(ctx, world.terrain, L, R, B + 40, u, tm);
     this.drawPad(ctx, world, u);
+    if (state === 'PLAYING') this.drawGuides(ctx, world, game.coachMark, u, tm);
+    this.drawRings(ctx, world, u);
     if (th.fx.includes('neon') && world.terrain.buildings.length) fx.drawRoofNeon(ctx, world.terrain, L, R, tm, DX);
     for (let i = 0; i < world.survivors.length; i++) this.drawSurvivor(ctx, world.survivors[i], u);
     this.drawRope(ctx, world.rope, u);
@@ -485,6 +487,62 @@ export class Renderer {
       const sz = bl.size[i];
       if (bl.stuck[i]) ctx.fillRect(Math.round(x / 1.5) * 1.5 - sz * 0.4, Math.round(bl.y[i] / 1.5) * 1.5 - sz * 0.3, sz * 1.8, sz * 0.8);
       else ctx.fillRect(Math.round(x / 1.5) * 1.5, Math.round(bl.y[i] / 1.5) * 1.5, sz, sz);
+    }
+    ctx.restore();
+  }
+
+  /** Expanding rings: a hook catch (small) or a delivery (big). Cosmetic only. */
+  drawRings(ctx, world, u) {
+    if (!world.rings.length) return;
+    ctx.save(); ctx.strokeStyle = WHITE;
+    for (const r of world.rings) {
+      const f = r.t / 0.9, big = r.kind === 'rescue';
+      ctx.globalAlpha = (1 - f) * 0.95; ctx.lineWidth = (big ? 3.4 : 2.6) * u;
+      ctx.beginPath(); ctx.arc(r.x, r.y, (big ? 16 : 10) + f * (big ? 130 : 70), 0, TAU); ctx.stroke();
+      if (big) { ctx.beginPath(); ctx.arc(r.x, r.y, 8 + f * 80, 0, TAU); ctx.stroke(); }
+    }
+    ctx.restore();
+  }
+
+  /**
+   * Teaching aids drawn from the real rules: the exact grab radius around nearby survivors (turns red when the hook
+   * is too fast to catch them), the drop-off box over the pad while riders are aboard, and the tutorial's pointer.
+   */
+  drawGuides(ctx, world, mark, u, tm) {
+    if (world.ended || world.heli.crashed) return;
+    const rope = world.rope, hx = rope.hookX(), hy = rope.hookY(), pad = world.terrain.pad;
+    ctx.save();
+    ctx.lineCap = 'round'; ctx.textAlign = 'center';
+    // 1) grab range around survivors the hook is close to
+    if (world.canGrab()) {
+      for (let i = 0; i < world.survivors.length; i++) {
+        const s = world.survivors[i];
+        if (s.state !== S.WAITING && s.state !== S.FALLING) continue;
+        const cy = s.y - 16, d = Math.hypot(hx - s.x, hy - cy);
+        if (d > 190) continue;
+        const fast = Math.hypot(rope.hookVX - s.vx, rope.hookVY - s.vy) > GRAB_SPEED;
+        const col = fast ? '#ff6a5c' : WHITE, pulse = 1 + Math.sin(tm * 7) * 0.05;
+        ctx.strokeStyle = col; ctx.fillStyle = col;
+        ctx.globalAlpha = 0.85; ctx.lineWidth = 2.2 * u; ctx.setLineDash([6 * u, 5 * u]);
+        ctx.beginPath(); ctx.arc(s.x, cy, GRAB_R * pulse, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+        ctx.beginPath(); ctx.arc(hx, hy, 3.4 * u, 0, TAU); ctx.fill();
+        if (fast && d < GRAB_R * 3) { ctx.font = `bold ${13 * u}px ${FONT}`; ctx.fillText('SLOW DOWN', s.x, cy - GRAB_R - 12); }
+      }
+    }
+    // 2) drop-off box: exactly the region where riders hop off (inside the pad posts, within 70 units of the ground)
+    if (world.riders.length || (mark && mark.mark === 'pad')) {
+      const a = 0.55 + Math.sin(tm * 4) * 0.25;
+      ctx.strokeStyle = WHITE; ctx.fillStyle = WHITE; ctx.globalAlpha = a; ctx.lineWidth = 2.6 * u; ctx.setLineDash([12 * u, 8 * u]);
+      ctx.strokeRect(pad.x0 + 8, pad.y - 70, pad.x1 - pad.x0 - 16, 70); ctx.setLineDash([]);
+      ctx.globalAlpha = 0.9; ctx.font = `bold ${13 * u}px ${FONT}`;
+      ctx.fillText('LOWER THEM IN HERE', pad.cx, pad.y - 78);
+    }
+    // 3) tutorial pointer
+    if (mark && mark.mark) {
+      const bob = Math.sin(tm * 5) * 6, x = mark.markX, y = mark.mark === 'pad' ? pad.y - 130 : mark.markY - 118;
+      ctx.strokeStyle = WHITE; ctx.fillStyle = WHITE; ctx.globalAlpha = 0.95; ctx.lineWidth = 2.4 * u;
+      ctx.beginPath(); ctx.moveTo(x, y + 22 + bob); ctx.lineTo(x - 11, y + bob); ctx.lineTo(x + 11, y + bob); ctx.closePath(); ctx.fill();
+      ctx.font = `bold ${13 * u}px ${FONT}`; ctx.fillText(mark.mark === 'pad' ? 'SAFE ZONE' : 'RESCUE THIS ONE', x, y - 6 + bob);
     }
     ctx.restore();
   }

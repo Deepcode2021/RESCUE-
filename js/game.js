@@ -5,6 +5,9 @@ import { Rain } from './weather.js';
 import { storage } from './storage.js';
 import { MISSIONS, DIFFICULTIES, DIFF_ORDER } from './missions.js';
 import { CHAPTERS, introFor, outroFor } from './story.js';
+import { Coach, buildDebrief, lossBanner, crashText } from './coach.js';
+
+const FAST_EVT = [{ type: 'grab_fast' }], NO_EVT = [];
 
 export const STATE = { STORY: 'STORY', CUTSCENE: 'CUTSCENE', TITLE: 'TITLE', PLAYING: 'PLAYING', PAUSED: 'PAUSED', SUCCESS: 'MISSION_SUCCESS', FAILED: 'MISSION_FAILED' };
 
@@ -29,7 +32,11 @@ export class Game {
     const d = storage.data;
     this.mission = Math.min(Math.max(0, d.mission | 0), MISSIONS.length - 1);
     this.diff = DIFFICULTIES[d.difficulty] ? d.difficulty : 'normal';
+    // brand-new pilots start on EASY (they can change it); anyone who already played keeps their saved choice
+    if ((d.plays | 0) === 0 && !d.diffChosen) this.diff = 'easy';
     this.world.reset(this.mission, this.diff);
+    this.coach = new Coach(storage.data);
+    this.coachMark = null; this.sawFast = false; this.tutorialRequest = false;
     this.acc = 0; this.last = 0; this.titleT = 0;
     this.fps = 60; this._fpsAcc = 0; this._fpsN = 0;
     this.report = null;
@@ -71,7 +78,7 @@ export class Game {
   }
   setDifficulty(key) {
     if (!DIFFICULTIES[key]) return;
-    this.diff = key;
+    this.diff = key; storage.data.diffChosen = true;
     this._applySelection();
   }
 
@@ -126,10 +133,25 @@ export class Game {
 
   // ---------------------------------------------------------------- lifecycle
   startFree() { this.mode = 'free'; this.start(this.mission, this.diff); }
-  start(mission = this.mission, diff = this.diff) {
-    this.mission = mission; this.diff = diff;
-    storage.data.mission = mission; storage.data.difficulty = diff;
-    this.world.reset(mission, diff);
+  /** Only brand-new pilots (no plays on record) get the tutorial automatically, and only on the first mission. */
+  _wantAutoTutorial(mission) {
+    const d = storage.data;
+    return mission === 0 && !d.tutorialDone && d.hints !== false && (d.plays | 0) === 0;
+  }
+  _touch() { return !!(this.input.usedTouch || document.body.classList.contains('touch')); }
+
+  /**
+   * opts.tutorial: true = force the guided tutorial (always Mountain Pass on EASY, saved selection untouched);
+   * false = never; undefined = automatic for new pilots.
+   */
+  start(mission = this.mission, diff = this.diff, opts = {}) {
+    const tut = opts.tutorial === true || (opts.tutorial !== false && this._wantAutoTutorial(mission));
+    if (tut) { mission = 0; this.mission = 0; }
+    else {
+      this.mission = mission; this.diff = diff;
+      storage.data.mission = mission; storage.data.difficulty = diff;
+    }
+    this.world.reset(mission, tut ? 'easy' : diff);
     const cfg = this.world.cfg;
     this.renderer.snapCamera(this.world);
     this.input.clear();
@@ -137,22 +159,39 @@ export class Game {
     this.state = STATE.PLAYING;
     this.input.enabled = true;
     this.ui.hideAll(); this.ui.showHud(true); this.ui.updateHud(this.world);
-    this.ui.banner(`${cfg.name} · ${cfg.diffLabel}`, 2000);
-    const hazards = cfg.tags.filter((t) => HAZARD_HINTS[t]).map((t) => HAZARD_HINTS[t]).join('  ');
-    this.radioShown = false;
-    const radio = this.mode === 'story' ? CHAPTERS[this.chapter].radio.start : '';
-    if (radio && storage.data.plays > 0) this.ui.hint(radio + (hazards ? '  ' + hazards : ''), 11000);
-    else if (storage.data.plays === 0) {
-      const touch = this.input.usedTouch || document.body.classList.contains('touch');
-      const ctl = touch ? 'Left/Right to tilt · Lift to rise · Touch the hook to a survivor (up to 3 can ride), then lower them into the SAFE ZONE'
-        : 'A/D tilt & thrust · W/Space lift · S descend · Q/E shorten/lengthen rope · Touch the hook to a survivor GENTLY (they climb the rope, up to 3), then lower them into the SAFE ZONE';
-      this.ui.hint((radio ? radio + '  ' : '') + ctl + (hazards ? '  ' + hazards : ''), 16000);
-    } else if (hazards) this.ui.hint(hazards, 9000);
-    else this.ui.hint('');
+    this.ui.banner(tut ? 'TUTORIAL · MOUNTAIN PASS' : `${cfg.name} · ${cfg.diffLabel}`, 2000);
+    this.coachMark = null; this.sawFast = false;
+    if (tut) { this.coach.startTutorial(this.world); this.ui.hint(''); this.radioShown = false; }
+    else {
+      this.coach.tut = null; this.coach.reset();
+      const hazards = cfg.tags.filter((t) => HAZARD_HINTS[t]).map((t) => HAZARD_HINTS[t]).join('  ');
+      this.radioShown = false;
+      const radio = this.mode === 'story' ? CHAPTERS[this.chapter].radio.start : '';
+      if (radio && storage.data.plays > 0) this.ui.hint(radio + (hazards ? '  ' + hazards : ''), 11000);
+      else if (storage.data.plays === 0 && storage.data.hints !== false) {
+        const ctl = this._touch() ? 'Left/Right to tilt · Lift to rise · Touch the hook to a survivor (up to 3 can ride), then lower them into the SAFE ZONE'
+          : 'A/D tilt & thrust · W/Space lift · S descend · Q/E shorten/lengthen rope · Touch the hook to a survivor GENTLY (they climb the rope, up to 3), then lower them into the SAFE ZONE';
+        this.ui.hint((radio ? radio + '  ' : '') + ctl + (hazards ? '  ' + hazards : ''), 16000);
+      } else if (hazards) this.ui.hint(hazards, 9000);
+      else this.ui.hint('');
+    }
     storage.data.plays++; storage.save();
   }
 
-  restart() { this.audio.click(); this.start(this.mission, this.diff); }
+  /** Replay the guided tutorial from the title or pause menu. */
+  replayTutorial() { this.mode = 'free'; this.start(0, this.diff, { tutorial: true }); }
+  skipTutorial() {
+    if (!this.coach.tutorialActive) return;
+    this.coach.endTutorial(); this.coachMark = null; this.ui.setCoach(null); storage.save();
+    this.ui.banner('TUTORIAL SKIPPED · HINTS STAY ON (PAUSE MENU)', 2200);
+  }
+  toggleHints() {
+    storage.data.hints = storage.data.hints === false; storage.save();
+    this.ui.setHintsLabel(storage.data.hints !== false);
+    if (storage.data.hints === false && !this.coach.tutorialActive) { this.coach.current = null; this.ui.setCoach(null); }
+  }
+
+  restart() { this.audio.click(); this.start(this.mission, this.diff, this.coach.tutorialActive ? { tutorial: true } : { tutorial: false }); }
   hasNext() { return this.mode === 'story' ? true : this.mission < MISSIONS.length - 1; }
   next() {
     this.audio.click();
@@ -163,6 +202,7 @@ export class Game {
   pause() {
     if (this.state !== STATE.PLAYING) return;
     this.state = STATE.PAUSED; this.input.enabled = false; this.input.clear();
+    this.ui.setCoach(null);
     this.ui.showPause(true);
   }
   resume() {
@@ -205,6 +245,16 @@ export class Game {
       if (steps === MAX_STEPS) this.acc = 0;       // spiral-of-death guard
       this._rain(dtReal);
       this.handleEvents();
+      const wasTut = this.coach.tutorialActive;
+      const info = this.coach.update(this.world, dtReal, this._touch(), this.sawFast ? FAST_EVT : NO_EVT);
+      this.sawFast = false;
+      this.ui.setCoach(info);
+      this.coachMark = info && info.mark ? info : null;
+      if (info && info.fresh) { storage.save(); this.audio.tick(); }
+      if (wasTut && !this.coach.tutorialActive) {
+        storage.save();
+        if (this.world.rescuedCount > 0) this.ui.banner('TUTORIAL COMPLETE', 1800);
+      }
       this.ui.updateHud(this.world);
       if (this.world.ended && this.world.endTimer > 1.7) this.finishMission();
       this.audio.update(this.world, true);
@@ -248,7 +298,9 @@ export class Game {
         case 'tornado_appear': this.ui.banner('IT IS HERE.', 1800); a.thunder(); break;
         case 'impact': a.impact(e.strength); break;
         case 'rope_hit': a.ropeHit(e.strength); break;
-        case 'grab': a.grab(); break;
+        case 'grab': a.grab(); a.hooked(); this.ui.banner('HOOKED! THEY CLIMB BY THEMSELVES', 1100); break;
+        case 'grab_fast': a.tooFast(); this.sawFast = true; break;
+        case 'near_miss': a.nearMiss(); this.ui.banner(`SO CLOSE! ${Math.round(e.dist / 10)} m FROM THE SAFE ZONE`, 1700, true); break;
         case 'rescued':
           a.rescue(); this.ui.banner('RESCUED!  +' + e.points, 1200);
           if (this.mode === 'story' && !this.radioShown) { this.radioShown = true; this.radio(CHAPTERS[this.chapter].radio.rescue, 5000); }
@@ -256,15 +308,15 @@ export class Game {
         case 'squall': this.ui.banner('GUST FRONT!  HOLD TIGHT', 2200, true); a.squall && a.squall(); break;
         case 'convoy': this.ui.banner(`CONVOY x${e.n}!  +${e.bonus}`, 1800); a.fanfare(e.n); break;
         case 'lost':
-          if (e.cause === 'drowned') { a.splash(); this.ui.banner('LOST TO THE SEA', 1200); }
-          else if (e.cause === 'blades') { a.chop(); this.ui.banner('SHREDDED! KEEP THE ROTORS AWAY', 1600, true); }
-          else if (e.cause === 'crushed') { a.chop(); this.ui.banner('SQUISHED!', 1300, true); }
+          if (e.cause === 'drowned') a.splash();
+          else if (e.cause === 'blades' || e.cause === 'crushed') a.chop();
           else a.lost();
+          this.ui.banner(lossBanner(e.cause), 1700, true);
           break;
-        case 'dropped': a.lost(); this.ui.banner('DROPPED!', 900); break;
+        case 'dropped': a.lost(); if (e.reason !== 'crash') this.ui.banner(e.reason === 'slipped' ? 'THEY SLIPPED!' : 'DROPPED!', 1100); break;
         case 'lightning': a.thunderLater(); break;
         case 'gore': a.gore(); break;
-        case 'heli_crash': a.crash(); this.ui.banner(e.reason === 'water' ? 'SPLASH!' : 'CRASH!', 1500); break;
+        case 'heli_crash': a.crash(); this.ui.banner(e.reason === 'water' ? 'SPLASH!' : 'CRASH!', 1500); this.ui.hint(crashText(e.reason, w.fuelOut), 6000); break;
         case 'low_fuel': a.warning(); this.ui.banner(e.level > 1 ? 'FUEL CRITICAL!' : 'LOW FUEL: HOVER OVER THE SAFE ZONE', 2200, true); break;
         case 'out_of_fuel': a.crash(); this.ui.banner('ENGINE OUT!', 2500, true); break;
         case 'refueled': a.rescue(); this.ui.banner('ENGINE RESTARTED', 1500); break;
@@ -297,7 +349,7 @@ export class Game {
     this.input.enabled = false; this.input.clear();
     this.ui.hint('');
     this.audio[r.success ? 'success' : 'fail']();
-    this.ui.showResults(r, { newBest: newBest && r.score > 0, best: storage.bestFor(cfg.id, cfg.diffKey), hasNext: this.hasNext(), nextLabel, sub });
+    this.ui.showResults(r, { newBest: newBest && r.score > 0, best: storage.bestFor(cfg.id, cfg.diffKey), hasNext: this.hasNext(), nextLabel, sub, debrief: buildDebrief(this.world) });
   }
 }
 

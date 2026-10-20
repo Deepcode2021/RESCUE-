@@ -48,6 +48,13 @@ difficulty. Winning a mission unlocks NEXT MISSION (same difficulty).
 - **Ragdoll survivors**: falling people flail on a Verlet ragdoll (11 points); dead ones are fully simulated and tumble. Rotor blades and the fuselage are lethal (`CHOPPED!` / `SQUISHED!`), hard landings splatter. Blood sprays, sticks to roofs and walls and fades; blade kills can sever limbs.
 - **City levels**: Paris Flood (Eiffel Tower, Sacre-Coeur, Arc de Triomphe, Notre-Dame skyline), Mumbai Monsoon (slum rooftops, Sea Link, Gateway of India), Manhattan (Empire State, Chrysler, One WTC, Statue of Liberty), Tokyo Neon (Tokyo Tower, Skytree, Fuji, neon signs), Dubai Heights (Burj Khalifa, Burj Al Arab). Rooftop terrain, pixel buildings with lit windows, and parallax skylines. The mountain and sea missions got new backdrops too (alps, harbour with lighthouse / rig / ships, himalaya with a radio mast).
 
+## v6: first five minutes (Roadmap Phase 1)
+
+New pilots start on Easy and get a skippable 6-step tutorial on Mountain Pass (`T` skips; replay from the title or pause menu).
+Context hints (switch off with HINTS: OFF), grab-range ring, drop-off box, HOOKED/TOO FAST/SO CLOSE feedback, cause-by-cause
+loss explanations and a "WHAT HAPPENED" list on the results screen. `Enter` triggers the primary results button, `R` retries.
+Details and status of later phases: `DEVELOPMENT_ROADMAP.md`. New test: `node tests/coach.mjs` (49 checks).
+
 ## v5: gore, themes and a storm that builds
 
 - **Shredding**: rotor contact bursts a survivor into 11 flying pieces (head, torso, arm and leg segments) that spin, bounce and

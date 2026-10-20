@@ -1,6 +1,8 @@
 // LocalStorage wrapper for settings and best scores. Safe when storage is unavailable.
 const KEY = 'rescue-game.v1';
-const defaults = { muted: false, bestScore: 0, bestRescued: 0, hintsDone: false, plays: 0, mission: 0, difficulty: 'normal', bests: {}, storyUnlocked: 1, storyDone: false, storyChapter: 0 };
+const defaults = { muted: false, bestScore: 0, bestRescued: 0, hintsDone: false, plays: 0, mission: 0, difficulty: 'normal', bests: {}, storyUnlocked: 1, storyDone: false, storyChapter: 0,
+  // v6 onboarding settings (older saves simply pick these defaults up through Object.assign in load())
+  hints: true, tutorialDone: false, hintSeen: {}, diffChosen: false };
 
 export const storage = {
   data: { ...defaults },
