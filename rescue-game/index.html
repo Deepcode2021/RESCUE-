@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>RESCUE?</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <canvas id="game" aria-label="RESCUE? game canvas"></canvas>
+
+    <!-- HUD -->
+    <div id="hud" class="hidden">
+      <div class="hud-left">
+        <div id="hudMission" class="hud-label"></div>
+        <div class="hud-row"><span class="hud-label">RESCUED</span> <b id="hudRescued">0/3</b></div>
+        <div class="hud-row"><span class="hud-label">TIME</span> <b id="hudTime">0:00</b></div>
+        <div class="hud-row"><span class="hud-label">SCORE</span> <b id="hudScore">0</b></div>
+        <div class="hud-row hidden" id="rowFuel"><span class="hud-label">FUEL</span> <span class="meter"><i id="fuelBar"></i></span></div>
+        <div class="hud-row hidden" id="rowSea"><span class="hud-label">SEA</span> <b id="hudSea">+0</b></div>
+        <div class="hud-row" id="rowRope"><span class="hud-label">ON ROPE</span> <b id="hudRope">0/3</b> <span class="hud-label" id="hudLine"></span></div>
+        <div class="hud-row hidden" id="rowAir"><span class="hud-label">AIR</span> <b id="hudAir">100%</b></div>
+      </div>
+      <div class="hud-center">
+        <div id="hudObjective">RESCUE THE SURVIVORS</div>
+        <div class="hud-wind"><span class="hud-label">WIND</span> <span id="windArrow">→</span> <span class="windtrack"><i id="windBar"></i></span></div>
+      </div>
+      <button id="pauseBtn" class="icon-btn" data-action="pause" aria-label="Pause">II</button>
+    </div>
+    <div id="banner" class="banner"></div>
+    <div id="hint" class="hint hidden"></div>
+
+    <!-- Touch controls -->
+    <div id="touch" class="hidden">
+      <div class="pad pad-left">
+        <button data-hold="left" aria-label="Left">◀</button>
+        <button data-hold="right" aria-label="Right">▶</button>
+      </div>
+      <div class="pad pad-right">
+        <button data-hold="ropeIn" class="rope-btn" aria-label="Shorten rope">ROPE&#9650;</button>
+        <button data-hold="ropeOut" class="rope-btn" aria-label="Lengthen rope">ROPE&#9660;</button>
+        <button data-hold="down" aria-label="Descend">▼</button>
+        <button data-hold="up" aria-label="Lift">▲</button>
+      </div>
+    </div>
+
+    <!-- Title -->
+    <section id="title" class="screen">
+      <div class="panel">
+        <h1>RESCUE<span class="q">?</span></h1>
+        <p class="tagline">Survivors on every peak. One helicopter. Absolutely terrible weather.</p>
+        <button class="btn big story-btn" data-action="openStory" id="storyBtn">STORY MODE <small id="storyProg"></small></button>
+        <div class="free-label">FREE PLAY</div>
+        <div class="select">
+          <button class="arrow" data-action="prevMission" aria-label="Previous mission">◀</button>
+          <div class="mcard">
+            <div class="mnum" id="mNum">MISSION 1 / 6</div>
+            <div class="mname" id="mName">MOUNTAIN PASS</div>
+            <div class="mdesc" id="mDesc"></div>
+            <div class="mtags" id="mTags"></div>
+          </div>
+          <button class="arrow" data-action="nextMission" aria-label="Next mission">▶</button>
+        </div>
+        <div class="diff" role="group" aria-label="Difficulty">
+          <button data-action="diff" data-arg="easy" data-diff="easy">EASY</button>
+          <button data-action="diff" data-arg="normal" data-diff="normal">NORMAL</button>
+          <button data-action="diff" data-arg="hard" data-diff="hard">HARD</button>
+        </div>
+        <div class="diffnote" id="diffNote"></div>
+        <button class="btn" data-action="play" id="playBtn">PLAY THIS MISSION</button>
+        <details class="controls">
+          <summary class="ctl-title">CONTROLS</summary>
+          <div><kbd>A</kbd><kbd>D</kbd> / <kbd>←</kbd><kbd>→</kbd> tilt &amp; thrust</div>
+          <div><kbd>W</kbd> / <kbd>Space</kbd> lift &nbsp; <kbd>S</kbd> descend</div>
+          <div><kbd>Q</kbd> reel rope in &nbsp; <kbd>E</kbd> let rope out (hold) &nbsp; <kbd>R</kbd> restart &nbsp; <kbd>Esc</kbd> pause</div>
+          <div class="ctl-sub">Touch the hook to a survivor gently: they climb the rope on their own. The rope holds up to THREE. Lower any of them into the SAFE ZONE and everyone on the rope hops off together (convoy bonus).</div>
+          <div class="ctl-sub">Touch: on-screen buttons.</div>
+        </details>
+        <div class="row">
+          <button class="btn small" data-action="sound"><span data-sound-label>SOUND: ON</span></button>
+          <div id="bestLine" class="best"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Story chapter list -->
+    <section id="story" class="screen hidden">
+      <div class="panel wide">
+        <h2>THE LONG STORM</h2>
+        <p class="tagline">A retired pilot, one old helicopter and a storm that will not leave.</p>
+        <div id="chapterList" class="chapters"></div>
+        <div class="diff" role="group" aria-label="Difficulty">
+          <button data-action="diff" data-arg="easy" data-diff="easy">EASY</button>
+          <button data-action="diff" data-arg="normal" data-diff="normal">NORMAL</button>
+          <button data-action="diff" data-arg="hard" data-diff="hard">HARD</button>
+        </div>
+        <button class="btn big" data-action="storyContinue" id="storyContinue">CONTINUE</button>
+        <div class="row">
+          <button class="btn" data-action="storyReset" id="storyReset">RESTART STORY</button>
+          <button class="btn" data-action="title">BACK</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Cutscene -->
+    <section id="cutscene" class="hidden" aria-live="polite" data-action="advanceCutscene">
+      <button class="btn small skip" data-action="skipCutscene">SKIP &#9656;&#9656;</button>
+      <div class="cs-card hidden" id="csCard">
+        <div class="cs-ch" id="csCh"></div>
+        <div class="cs-title" id="csTitle"></div>
+        <div class="cs-place" id="csPlace"></div>
+      </div>
+      <div class="cs-box" id="csBox">
+        <div class="cs-who" id="csWho"></div>
+        <div class="cs-text" id="csText"></div>
+        <div class="cs-next" id="csNext">tap / Enter &#9656;</div>
+      </div>
+    </section>
+
+    <!-- Pause -->
+    <section id="pause" class="screen hidden">
+      <div class="panel">
+        <h2>PAUSED</h2>
+        <button class="btn" data-action="resume">RESUME</button>
+        <button class="btn" data-action="restart">RESTART MISSION</button>
+        <button class="btn" data-action="sound"><span data-sound-label>SOUND: ON</span></button>
+        <button class="btn" data-action="title">MAIN MENU</button>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section id="results" class="screen hidden">
+      <div class="panel">
+        <h2 id="resTitle">MISSION REPORT</h2>
+        <div id="resSub" class="best"></div>
+        <p id="resMsg" class="msg"></p>
+        <table class="stats">
+          <tr><td>Survivors rescued</td><td id="resRescued">0</td></tr>
+          <tr><td>Survivors lost</td><td id="resLost">0</td></tr>
+          <tr><td>Mission duration</td><td id="resTime">0:00</td></tr>
+          <tr><td>Rescue efficiency</td><td id="resEff">0%</td></tr>
+          <tr><td>Bonuses</td><td id="resBonus">—</td></tr>
+          <tr class="total"><td>FINAL SCORE</td><td id="resScore">0</td></tr>
+        </table>
+        <div id="resBest" class="best"></div>
+        <div class="row">
+          <button class="btn" data-action="restart" id="retryBtn">RETRY</button>
+          <button class="btn hidden" data-action="next" id="nextBtn">NEXT MISSION</button>
+          <button class="btn" data-action="title">MAIN MENU</button>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
