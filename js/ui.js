@@ -2,6 +2,20 @@
 import { fmtTime } from './utils.js';
 import { CAST } from './story.js';
 import { S } from './survivors.js';
+import { MEDAL_STARS, medalName } from './scoring.js';
+
+const stars = (m) => MEDAL_STARS[m] || MEDAL_STARS[0];
+const DIFF_SHORT = { easy: 'EASY', normal: 'NORMAL', hard: 'HARD' };
+const li = (text, mark) => { const n = document.createElement('li'); n.textContent = text; if (mark) n.dataset.mark = mark; return n; };
+/** One line describing a personal-best record (works for old records that only have score + rescued). */
+export function recordText(b) {
+  if (!b || (!b.score && !b.rescued && !b.completions)) return '';
+  const parts = [`${b.score} pts`, `${b.rescued} rescued`];
+  if (b.medal > 0) parts.push(`${stars(b.medal)} ${medalName(b.medal)}`);
+  if (b.bestTime) parts.push(`best full-rescue time ${fmtTime(b.bestTime)}`);
+  if (b.attempts > 0) parts.push(`${b.attempts} ${b.attempts === 1 ? 'attempt' : 'attempts'}`);
+  return parts.join(' · ');
+}
 
 const $ = (id) => document.getElementById(id);
 
@@ -49,7 +63,18 @@ export class UI {
     e.mTags.replaceChildren(...info.tags.map((t) => { const s = document.createElement('span'); s.textContent = t; return s; }));
     document.querySelectorAll('.diff [data-diff]').forEach((b) => b.classList.toggle('active', b.dataset.diff === info.diff));
     e.diffNote.textContent = info.diffNote;
-    e.bestLine.textContent = info.best.score > 0 ? `BEST: ${info.best.score} pts · ${info.best.rescued} rescued` : 'No rescues on record here. Yet.';
+    const bt = recordText(info.best);
+    e.bestLine.textContent = bt ? `BEST: ${bt}` : 'No rescues on record here. Yet.';
+    if (info.medals) {
+      const row = $('mMedals');
+      row.replaceChildren(...Object.keys(DIFF_SHORT).map((k) => {
+        const sp = document.createElement('span'); const m = info.medals[k] | 0;
+        sp.textContent = `${DIFF_SHORT[k]} ${stars(m)}`; sp.title = `${DIFF_SHORT[k]}: ${m ? medalName(m) + ' medal' : 'no medal yet'}`;
+        sp.setAttribute('aria-label', sp.title); if (k === info.diff) sp.className = 'cur';
+        return sp;
+      }));
+    }
+    if (info.goals) $('mGoals').replaceChildren(...info.goals.map((g) => li(`${stars(g.medal)} ${medalName(g.medal)}: ${g.text}`)));
   }
   hideAll() {
     for (const k of ['title', 'pause', 'results', 'story', 'cutscene']) this.el[k].classList.add('hidden');
@@ -141,28 +166,69 @@ export class UI {
 
   showResults(r, opts) {
     const $$ = (id, v) => { $(id).textContent = v; };
+    const show = (id, on) => $(id).classList.toggle('hidden', !on);
     $('resTitle').textContent = r.success ? 'MISSION COMPLETE' : 'MISSION FAILED';
-    $('resSub').textContent = `${r.mission} · ${r.difficulty}`;
     $$('resMsg', r.message);
+    // medal (stars + word, so it never relies on colour)
+    const med = $('resMedal'), earned = !r.practice && r.success && r.medal > 0;
+    med.classList.toggle('earned', earned); med.classList.toggle('none', !earned);
+    if (r.practice) { $$('resMedalStars', ''); $$('resMedalName', 'PRACTICE RUN: no medal, nothing recorded'); }
+    else if (earned) { $$('resMedalStars', stars(r.medal)); $$('resMedalName', `${medalName(r.medal)} MEDAL`); }
+    else { $$('resMedalStars', stars(0)); $$('resMedalName', r.success ? 'NO MEDAL' : 'NO MEDAL (MISSION FAILED)'); }
+    // facts
+    const half = Math.ceil(r.total / 2);
+    $$('resObjLabel', `Objective: rescue ${half === r.total ? 'all' : 'at least ' + half} of ${r.total}`);
+    $$('resObj', r.success ? 'MET' : 'NOT MET');
     $$('resRescued', `${r.rescued} / ${r.total}`);
     $$('resLost', String(r.lost));
-    $$('resTime', fmtTime(r.duration));
-    $$('resEff', r.efficiency + '%');
-    const bonus = [];
-    if (r.timeBonus) bonus.push(`speed +${r.timeBonus}`);
-    if (r.convoyBonus) bonus.push(`convoy +${r.convoyBonus}`);
-    if (r.perfectBonus) bonus.push(`flawless +${r.perfectBonus}`);
-    $$('resBonus', bonus.length ? bonus.join(', ') : '—');
+    $$('resLeft', String(r.remaining));
+    show('rowLeft', r.remaining > 0);
+    $$('resTime', `${fmtTime(r.duration)} (limit ${fmtTime(r.timeLimit)})`);
+    $$('resFuel', `${Math.round(r.fuelLeft || 0)}%`);
+    show('rowFuelRes', r.hasFuel);
     $$('resScore', String(r.score));
-    $('resBest').textContent = opts.newBest ? 'NEW BEST SCORE!' : `Best here: ${opts.best.score} pts · ${opts.best.rescued} rescued`;
+    // breakdown, collapsed on phones
+    const parts = r.breakdown || [];
+    $('resParts').replaceChildren(...parts.map((p) => {
+      const tr = document.createElement('tr'), a = document.createElement('td'), b = document.createElement('td');
+      a.textContent = p.label; const sm = document.createElement('small'); sm.textContent = p.detail; a.appendChild(sm);
+      b.textContent = '+' + p.points; tr.append(a, b); return tr;
+    }));
+    $$('resPartsNote', (r.fullClear ? '' : 'Speed, flawless and fuel bonuses are only awarded when everyone is rescued and the helicopter survives. ') +
+      `Nothing is ever subtracted: lost survivors and crashes just forfeit points.${r.mult ? ` Difficulty ${r.difficulty} scores x${r.mult}.` : ''}`);
+    $('resBreakdown').open = window.innerWidth > 480;
+    // records
+    const rec = $('resRecord'), info = opts.record;
+    rec.replaceChildren();
+    if (r.practice) rec.textContent = 'Practice runs never change your records. Play the mission from the menu to earn a medal.';
+    else if (info) {
+      const fl = [];
+      if (info.flags.firstClear) fl.push('FIRST COMPLETION');
+      if (info.flags.newScore) fl.push('NEW BEST SCORE');
+      if (info.flags.newMedal) fl.push(`NEW MEDAL: ${medalName(r.medal)}`);
+      if (info.flags.newTime) fl.push('NEW BEST TIME');
+      if (fl.length) { const f = document.createElement('span'); f.className = 'flags'; f.textContent = fl.join(' · '); rec.appendChild(f); }
+      const prev = info.prev && info.prev.score > 0 && info.flags.newScore ? ` (previous ${info.prev.score})` : '';
+      rec.append(document.createTextNode(`Best here: ${recordText(opts.best)}${prev}`));
+    }
+    // next medal
+    const nm = r.medalInfo && r.medalInfo.next;
+    if (r.practice) show('resNext', false);
+    else if (!nm) { show('resNext', true); $$('resNextTitle', 'TOP MEDAL REACHED'); $('resNextList').replaceChildren(li('Gold is the highest medal. Beat your best score or time, or try a harder difficulty.')); }
+    else {
+      show('resNext', true);
+      $$('resNextTitle', `${earned ? 'NEXT MEDAL' : 'FIRST MEDAL'}: ${stars(nm.medal)} ${medalName(nm.medal)}`);
+      $('resNextList').replaceChildren(...nm.reqs.map((q) => li(q.text, q.met ? '✓' : '✗')));
+    }
     const why = opts.debrief || [];
     $('resWhy').classList.toggle('hidden', !why.length);
-    $('resWhyList').replaceChildren(...why.slice(0, 6).map((t) => { const li = document.createElement('li'); li.textContent = t; return li; }));
+    $('resWhyList').replaceChildren(...why.slice(0, 6).map((t) => { const n = document.createElement('li'); n.textContent = t; return n; }));
     $('nextBtn').textContent = opts.nextLabel || 'NEXT MISSION';
     $('nextBtn').classList.toggle('hidden', !(r.success && opts.hasNext));
     $('resSub').textContent = opts.sub || `${r.mission} · ${r.difficulty}`;
     this.hideAll();
     this.el.results.classList.remove('hidden');
+    this.el.results.scrollTop = 0;
     this.showHud(false);
     this.setCoach(null);
     const primary = $(r.success && opts.hasNext ? 'nextBtn' : 'retryBtn'); if (primary) primary.focus({ preventScroll: true });

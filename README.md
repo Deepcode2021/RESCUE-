@@ -55,6 +55,14 @@ Context hints (switch off with HINTS: OFF), grab-range ring, drop-off box, HOOKE
 loss explanations and a "WHAT HAPPENED" list on the results screen. `Enter` triggers the primary results button, `R` retries.
 Details and status of later phases: `DEVELOPMENT_ROADMAP.md`. New test: `node tests/coach.mjs` (49 checks).
 
+## v7: medals, personal bests and results (Roadmap Phase 2)
+
+- **Score** = rescues (100) + clean pickups (50) + convoy + speed (2 per second under par) + flawless (250) + fuel (0.8 per % left), all x difficulty (0.75 / 1 / 1.5). Speed, flawless and fuel only count when everyone is rescued and the helicopter survives, so reckless speed never pays. Nothing is subtracted. The results screen shows every part under SCORE BREAKDOWN.
+- **Medals** (provisional thresholds, not playtested): BRONZE `★☆☆` rescue at least half without crashing first; SILVER `★★☆` rescue all and keep the helicopter intact; GOLD `★★★` Silver + never drop anyone + finish within 80% of the time limit. Failed runs and the tutorial earn nothing.
+- **Personal bests** per mission and difficulty: best score, highest medal, best full-rescue time, most rescued, attempts. Failures and worse runs never overwrite them. Story and free play share records. Old saves are upgraded in place and malformed ones are repaired.
+- The mission card shows medals per difficulty and the medal goals; the results show the earned medal, new-record flags and what the next medal needs.
+- Code: `js/scoring.js` (formula and medals, pure), `js/records.js` (record rules and save migration). Full formula, schema and known issues: `DEVELOPMENT_ROADMAP.md`. New test: `node tests/scoring.mjs` (129 checks).
+
 ## v5: gore, themes and a storm that builds
 
 - **Shredding**: rotor contact bursts a survivor into 11 flying pieces (head, torso, arm and leg segments) that spin, bounce and
@@ -130,6 +138,8 @@ left/right keys) pick the mission.
 | `js/themes.js`, `js/themefx.js` | per-place colour grade, sky, weather mode and effect drawing (beacons, searchlights, neon, fog, birds, haze) |
 | `js/ragdoll.js`, `js/sprites.js`, `js/cityart.js` | Verlet ragdoll; baked pixel helicopter views; pixel buildings, landmarks and parallax scenery |
 | `js/story.js` | story text: prologue, chapters (intro / outro / radio lines), epilogue |
+| `js/scoring.js`, `js/records.js` | Phase 2: score formula, medal tiers, personal-best rules, save migration (pure, no DOM) |
+| `js/coach.js` | Phase 1: tutorial, context hints, debrief text |
 | `js/input.js`, `js/ui.js`, `js/storage.js` | input smoothing, DOM menus + HUD, LocalStorage |
 
 ## Tests
@@ -140,6 +150,8 @@ node tests/sim2.mjs                     # 38 checks: all 18 mission x difficulty
                                         # fuel / flameout, thin-air climb margin, difficulty scaling, scoring
 node tests/multi.mjs                    # 19 checks: 3-rider convoy, 4th refused, solo slip, no slipping on Easy/Normal, slipping on Hard
 node tests/story.mjs                    # story data integrity (chapters map to missions, cast, lengths)
+node tests/coach.mjs                    # 49 checks: tutorial, hints, debrief, legacy saves, Game integration
+node tests/scoring.mjs                  # 129 checks: score parts, medals, records, migration, Game integration
 node tests/mission.mjs 1 230 hard       # autopilot flies one mission (mission index, max seconds, difficulty)
 node tests/matrix.mjs                   # autopilot across every mission x difficulty
 ```

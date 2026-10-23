@@ -190,3 +190,8 @@ Human balance pass on Hard and gust fronts; mobile device testing; real music vi
 - Rope tests that teleport the helicopter must also snap the rope, or the swept rope kills survivors.
 - Blood/gibs are drawn after the colour-grade tint on purpose.
 - Terrain `version` and mission id key the baked-art cache in the renderer.
+
+## 15c. v7 / Roadmap Phase 2 (medals, personal bests, results) — see DEVELOPMENT_ROADMAP.md
+`js/scoring.js` (pure score formula + Bronze/Silver/Gold tiers, thresholds provisional), `js/records.js` (record rules + save migration, saveVersion 2),
+`World.report()` now delegates to them and adds `breakdown`, `medal`, `medalInfo`, `remaining`, `runId`, `practice`. `Game.finishMission()` records each run once;
+tutorial runs are practice (no medal, no record). Records per `mission:difficulty`: score, rescued, medal, bestTime, completions, attempts. Test: `tests/scoring.mjs`.

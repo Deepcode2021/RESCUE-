@@ -43,9 +43,9 @@ body.touch #touch { display: flex; }
 .pad .rope-btn { width: min(54px, 11vw); font-size: 11px; border-radius: 10px 24px 8px 22px; }
 
 /* Screens */
-.screen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.55); padding: 16px; overflow-y: auto; touch-action: pan-y; }
+.screen { position: absolute; inset: 0; display: flex; align-items: flex-start; justify-content: center; background: rgba(0, 0, 0, 0.55); padding: 16px; overflow-y: auto; touch-action: pan-y; }
 #title { background: radial-gradient(ellipse at center, rgba(0,0,0,0.35), rgba(0,0,0,0.8)); }
-.panel { width: min(92vw, 460px); text-align: center; padding: 22px 22px 20px; border: 2.5px solid var(--ink); border-radius: 26px 8px 28px 10px / 10px 28px 8px 26px; background: rgba(3, 3, 3, 0.82); }
+.panel { margin: auto; width: min(92vw, 460px); text-align: center; padding: 22px 22px 20px; border: 2.5px solid var(--ink); border-radius: 26px 8px 28px 10px / 10px 28px 8px 26px; background: rgba(3, 3, 3, 0.82); }
 h1 { font-size: clamp(44px, 12vw, 76px); margin: 0; letter-spacing: 0.05em; line-height: 1; transform: rotate(-2deg); }
 h1 .q { display: inline-block; transform: rotate(12deg); }
 h2 { font-size: 30px; margin: 0 0 10px; letter-spacing: 0.06em; }
@@ -143,3 +143,36 @@ details.controls > div { margin-top: 2px; }
 .btn small { font-size: 11px; opacity: 0.7; letter-spacing: 0.03em; }
 @media (max-height: 520px) and (orientation: landscape) { .coach { top: 26%; padding: 6px 10px 8px; } }
 @media (max-width: 480px) { .hud-nav { font-size: 10px; } .coach { top: 34%; } }
+
+/* Phase 2: medals, score breakdown, records. Monochrome: medals are read by their stars AND their name, never by colour. */
+.medalrow { font-size: 12px; letter-spacing: 0.04em; margin: 2px 0 6px; display: flex; gap: 4px 10px; justify-content: center; flex-wrap: wrap; }
+.medalrow span { padding: 1px 6px; border: 1.5px solid var(--dim); border-radius: 8px 3px 9px 4px; color: var(--dim); white-space: nowrap; }
+.medalrow span.cur { border-color: var(--ink); color: var(--ink); }
+details.goals { text-align: left; font-size: 12px; line-height: 1.4; margin: 0 0 8px; }
+details.goals summary, details.breakdown summary { cursor: pointer; list-style: none; color: var(--dim); font-size: 11px; letter-spacing: 0.1em; padding: 4px 0; }
+details.goals summary::before, details.breakdown summary::before { content: '▸ '; }
+details.goals[open] summary::before, details.breakdown[open] summary::before { content: '▾ '; }
+details.goals summary small { letter-spacing: 0; }
+details.goals ul { margin: 2px 0 0; padding-left: 0; list-style: none; }
+details.goals li { margin: 3px 0; }
+.medal { display: flex; align-items: baseline; justify-content: center; gap: 10px; margin: 2px 0 8px; padding: 6px 8px; border: 2px dashed var(--dim); border-radius: 14px 5px 16px 6px; }
+.medal.earned { border: 2.5px solid var(--ink); }
+.medal-stars { font-size: 28px; letter-spacing: 0.12em; line-height: 1; }
+.medal-name { font-size: 18px; letter-spacing: 0.1em; font-weight: bold; }
+.medal.none .medal-name { color: var(--dim); font-weight: normal; font-size: 15px; }
+.stats.small { font-size: 13px; margin: 0; }
+.stats.small td { padding: 3px 4px; }
+.stats.small td small { display: block; font-weight: normal; color: var(--dim); font-size: 11px; }
+details.breakdown { text-align: left; margin: 4px 0; }
+.fine { color: var(--dim); font-size: 11px; line-height: 1.4; margin: 4px 0 0; }
+.record { font-size: 13px; line-height: 1.45; margin: 6px 0; color: var(--dim); }
+.record .flags { display: block; color: var(--ink); font-weight: bold; letter-spacing: 0.06em; margin-bottom: 2px; }
+.nextmedal { text-align: left; margin: 8px 0 4px; border: 1.5px dashed var(--dim); border-radius: 10px; padding: 6px 10px; }
+.nextmedal ul { margin: 2px 0 0; padding: 0; list-style: none; font-size: 13px; line-height: 1.45; }
+.nextmedal li::before { content: attr(data-mark) ' '; display: inline-block; width: 1.4em; }
+@media (max-width: 480px) {
+  .panel { padding: 16px 14px 14px; } h2 { font-size: 24px; margin-bottom: 6px; }
+  .medal-stars { font-size: 24px; } .msg { font-size: 14px; margin-bottom: 8px; } .stats { font-size: 14px; }
+  .stats td { padding: 3px 4px; } .stats .total td { font-size: 18px; padding-top: 6px; }
+  .record { font-size: 12px; }
+}

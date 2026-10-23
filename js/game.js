@@ -3,7 +3,8 @@ import { STEP, MAX_FRAME, MAX_STEPS } from './constants.js';
 import { World } from './world.js';
 import { Rain } from './weather.js';
 import { storage } from './storage.js';
-import { MISSIONS, DIFFICULTIES, DIFF_ORDER } from './missions.js';
+import { MISSIONS, DIFFICULTIES, DIFF_ORDER, buildConfig } from './missions.js';
+import { medalGoals } from './scoring.js';
 import { CHAPTERS, introFor, outroFor } from './story.js';
 import { Coach, buildDebrief, lossBanner, crashText } from './coach.js';
 
@@ -51,9 +52,11 @@ export class Game {
   selectInfo() {
     const m = MISSIONS[this.mission];
     const best = storage.bestFor(m.id, this.diff);
+    const medals = {};                                                   // earned medal per difficulty for this mission
+    for (const k of DIFF_ORDER) medals[k] = storage.bestFor(m.id, k).medal;
     return {
       index: this.mission, count: MISSIONS.length, name: m.name, blurb: m.blurb, tags: m.tags,
-      diff: this.diff, diffNote: DIFF_NOTES[this.diff], best,
+      diff: this.diff, diffNote: DIFF_NOTES[this.diff], best, medals, goals: medalGoals(buildConfig(this.mission, this.diff)),
     };
   }
 
@@ -152,6 +155,7 @@ export class Game {
       storage.data.mission = mission; storage.data.difficulty = diff;
     }
     this.world.reset(mission, tut ? 'easy' : diff);
+    this.world.practice = tut;                         // the guided tutorial is practice: no medals, no records
     const cfg = this.world.cfg;
     this.renderer.snapCamera(this.world);
     this.input.clear();
@@ -327,10 +331,17 @@ export class Game {
   }
 
   finishMission() {
-    const r = this.world.report();
+    const w = this.world;
+    if (this._finishedRun === w.runId) return;           // a run is processed exactly once (no duplicate records)
+    this._finishedRun = w.runId;
+    const r = w.report();
     this.report = r;
-    const cfg = this.world.cfg;
-    const newBest = storage.recordBest(cfg.id, cfg.diffKey, r.score, r.rescued);
+    const cfg = w.cfg;
+    let rec = null;                                      // { rec, prev, flags } for real runs; null for practice
+    if (!r.practice) {
+      rec = storage.recordRun(cfg.id, cfg.diffKey, { success: r.success, score: r.score, rescued: r.rescued, medal: r.success ? r.medal : 0, duration: r.duration, fullClear: r.fullClear });
+    }
+    const newBest = !!(rec && rec.flags.newScore);
     storage.data.hintsDone = true;
     let nextLabel = 'NEXT MISSION', sub;
     if (this.mode === 'story') {
@@ -349,7 +360,7 @@ export class Game {
     this.input.enabled = false; this.input.clear();
     this.ui.hint('');
     this.audio[r.success ? 'success' : 'fail']();
-    this.ui.showResults(r, { newBest: newBest && r.score > 0, best: storage.bestFor(cfg.id, cfg.diffKey), hasNext: this.hasNext(), nextLabel, sub, debrief: buildDebrief(this.world) });
+    this.ui.showResults(r, { newBest, record: rec, best: storage.bestFor(cfg.id, cfg.diffKey), hasNext: this.hasNext(), nextLabel, sub, debrief: buildDebrief(this.world) });
   }
 }
 

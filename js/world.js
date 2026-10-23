@@ -14,6 +14,9 @@ import { themeOf } from './themes.js';
 import { closestOnSegment } from './physics.js';
 import { P as RP } from './ragdoll.js';
 import { Dialogue } from './dialogue.js';
+import { summarize, computeScore, evaluateMedal, isSuccess } from './scoring.js';
+
+let runCounter = 0;   // unique id per started mission, so a finished run can only be recorded once
 
 const _a = { x: 0, y: 0 };
 const _cp = { x: 0, y: 0, t: 0 };
@@ -42,6 +45,8 @@ export class World {
   reset(mission = 0, diff = 'normal') {
     const cfg = this.cfg = buildConfig(mission, diff);
     this.level = cfg.index;
+    this.runId = ++runCounter;
+    this.practice = false;                            // tutorial / practice runs record nothing (set by the game after reset)
     this.rnd = mulberry32(cfg.seed + 99);
     const total = this.terrain.generate(cfg.terrain, cfg.seed, cfg.tide);
     this.terrain.update(0);
@@ -445,23 +450,26 @@ export class World {
   }
 
   report() {
-    const total = this.total;
-    const rescued = this.rescuedCount;
-    const lost = total - rescued;
-    const duration = this.ended ? this.endTime : this.time;
-    const clean = this.survivors.every((s) => s.state !== S.RESCUED || !s.dropped);
+    // Scoring lives in scoring.js (pure functions of this snapshot); nothing here affects the simulation.
+    const run = summarize(this);
+    const { total, rescued } = run;
     const all = rescued === total;
-    const perfect = all && clean;
-    const mult = this.cfg.scoreMult;
-    const timeBonus = all ? Math.round(Math.max(0, (this.cfg.parTime - duration) * 2) * mult) : 0;
-    const perfectBonus = perfect ? Math.round(250 * mult) : 0;
-    const score = this.score + timeBonus + perfectBonus;
-    const success = rescued >= Math.ceil(total / 2) && this.endReason !== 'crash' || (all && this.endReason === 'crash');
-    const efficiency = Math.round((rescued / total) * 100);
+    const bd = computeScore(run);
+    const part = (id) => (bd.parts.find((p) => p.id === id) || { points: 0 }).points;
+    const perfect = all && !run.crashed && run.cleanRescues === total;
+    const success = isSuccess(run);
+    const med = evaluateMedal(run);
     return {
-      success, rescued, lost, total, duration, efficiency, score,
-      base: this.score, convoyBonus: this.convoyBonus, timeBonus, perfectBonus, perfect, reason: this.endReason,
+      runId: this.runId, practice: this.practice,
+      success, rescued, lost: run.lost, remaining: run.remaining, total, duration: run.duration,
+      efficiency: Math.round((rescued / total) * 100), score: bd.total,
+      base: part('rescue') + part('clean') + part('convoy'),
+      convoyBonus: part('convoy'), timeBonus: part('speed'), perfectBonus: part('flawless'), fuelBonus: part('fuel'), perfect,
+      breakdown: bd.parts,
+      medal: this.practice ? 0 : med.medal, medalInfo: med, fullClear: all && !run.crashed,
+      mult: run.mult, reason: this.endReason, crashed: run.crashed, hasFuel: run.hasFuel, fuelLeft: run.hasFuel ? run.fuelPct : null, timeLimit: run.timeLimit,
       mission: this.cfg.name, difficulty: this.cfg.diffLabel, missionIndex: this.cfg.index,
+      missionId: this.cfg.id, diffKey: this.cfg.diffKey,
       message: this.pickMessage(success, rescued, total, perfect, all),
     };
   }

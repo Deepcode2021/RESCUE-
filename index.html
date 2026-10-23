@@ -74,6 +74,11 @@
           <button data-action="diff" data-arg="hard" data-diff="hard">HARD</button>
         </div>
         <div class="diffnote" id="diffNote"></div>
+        <div class="medalrow" id="mMedals" aria-label="Medals earned on this mission"></div>
+        <details class="goals" id="mGoalsBox">
+          <summary>MEDAL GOALS <small>(provisional)</small></summary>
+          <ul id="mGoals"></ul>
+        </details>
         <button class="btn" data-action="play" id="playBtn">PLAY THIS MISSION</button>
         <details class="controls">
           <summary class="ctl-title">CONTROLS</summary>
@@ -144,16 +149,24 @@
       <div class="panel">
         <h2 id="resTitle">MISSION REPORT</h2>
         <div id="resSub" class="best"></div>
+        <div id="resMedal" class="medal" role="status"><span id="resMedalStars" class="medal-stars" aria-hidden="true"></span><span id="resMedalName" class="medal-name"></span></div>
         <p id="resMsg" class="msg"></p>
         <table class="stats">
           <tr><td>Survivors rescued</td><td id="resRescued">0</td></tr>
+          <tr><td id="resObjLabel">Objective</td><td id="resObj">—</td></tr>
           <tr><td>Survivors lost</td><td id="resLost">0</td></tr>
-          <tr><td>Mission duration</td><td id="resTime">0:00</td></tr>
-          <tr><td>Rescue efficiency</td><td id="resEff">0%</td></tr>
-          <tr><td>Bonuses</td><td id="resBonus">—</td></tr>
+          <tr id="rowLeft"><td>Left behind</td><td id="resLeft">0</td></tr>
+          <tr><td>Mission time</td><td id="resTime">0:00</td></tr>
+          <tr id="rowFuelRes"><td>Fuel left</td><td id="resFuel">0%</td></tr>
           <tr class="total"><td>FINAL SCORE</td><td id="resScore">0</td></tr>
         </table>
-        <div id="resBest" class="best"></div>
+        <details class="breakdown" id="resBreakdown">
+          <summary>SCORE BREAKDOWN</summary>
+          <table class="stats small" id="resParts"></table>
+          <p class="fine" id="resPartsNote"></p>
+        </details>
+        <div id="resRecord" class="record"></div>
+        <div id="resNext" class="nextmedal hidden"><div class="why-title" id="resNextTitle"></div><ul id="resNextList"></ul></div>
         <div id="resWhy" class="why hidden"><div class="why-title">WHAT HAPPENED</div><ul id="resWhyList"></ul></div>
         <div class="row">
           <button class="btn" data-action="restart" id="retryBtn">RETRY (R)</button>
